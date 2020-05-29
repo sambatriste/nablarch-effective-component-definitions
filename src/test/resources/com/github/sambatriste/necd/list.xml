@@ -1,0 +1,20 @@
+<component-configuration
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://tis.co.jp/nablarch/component-configuration"
+        xsi:schemaLocation="http://tis.co.jp/nablarch/component-configuration  https://nablarch.github.io/schema/component-configuration.xsd">
+
+  <list name="compoList">
+    <component class="com.github.sambatriste.necd.PlainObject">
+      <property name="name" value="aaa"/>
+    </component>
+    <component class="com.github.sambatriste.necd.PlainObject">
+      <property name="name" value="bbb"/>
+    </component>
+  </list>
+
+  <list name="valueList">
+    <value>aaa</value>
+    <value>bbb</value>
+  </list>
+
+
+</component-configuration>

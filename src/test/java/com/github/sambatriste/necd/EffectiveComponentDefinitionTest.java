@@ -1,9 +1,10 @@
 package com.github.sambatriste.necd;
 
 import com.github.sambatriste.necd.EffectiveComponentDefinition.ObjectGraphBuilder;
-import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -12,7 +13,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 @SuppressWarnings("unchecked")
 public class EffectiveComponentDefinitionTest {
 
-    private ObjectGraphBuilder sut ;
+    private ObjectGraphBuilder sut;
+
     @Test
 
     public void testPlainObject() {
@@ -47,5 +49,23 @@ public class EffectiveComponentDefinitionTest {
         Map<String, Object> m = sut.build();
         Map<String, Object> plainObject = (Map<String, Object>) m.get("plainObject");
         assertThat((String) plainObject.get("name"), is("ccc"));
+    }
+
+    @Test
+    public void testList() {
+        sut = new ObjectGraphBuilder("com/github/sambatriste/necd/list.xml");
+        Map<String, Object> m = sut.build();
+
+        List<Map<String, Object>> compoList = (List<Map<String, Object>>) m.get("compoList");
+        assertThat((String) compoList.get(0).get("name"), is("aaa"));
+        assertThat((String) compoList.get(1).get("name"), is("bbb"));
+        assertThat(compoList.size(), is(2));
+
+        List<String> valueList = (List<String>) m.get("valueList");
+        assertThat(valueList.get(0), is("aaa"));
+        assertThat(valueList.get(1), is("bbb"));
+
+
+        //EffectiveComponentDefinition.main("com/github/sambatriste/necd/list.xml");
     }
 }

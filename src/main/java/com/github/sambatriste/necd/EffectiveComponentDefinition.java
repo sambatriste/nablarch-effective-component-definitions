@@ -20,9 +20,11 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -126,8 +128,28 @@ public class EffectiveComponentDefinition {
             return evaluate(refs);
         }
 
+        private static Pattern LIST_VALUE_PATTERN = Pattern.compile("list objects = \\[(.+)]");
         private Object evaluate(ListComponentCreator creator) {
-            return creator.toString();
+            String orig = creator.toString();
+            Matcher valueMatcher = LIST_VALUE_PATTERN.matcher(orig);
+            boolean found = valueMatcher.find();
+            assert found;
+            String listValue = valueMatcher.group(1);
+            String[] elements = listValue.split(",");
+            List<Object> result = new ArrayList<Object>();
+            for (String e : elements) {
+                String[] split = e.split(":");
+                String type = split[0];
+                String val = split[1];
+                ComponentDefinition listElement = null;
+                if (type.equals("id")) {
+                    listElement = find(Integer.parseInt(val));
+                } else if (type.equals("name")) {
+                    listElement = find(val);
+                }
+                result.add(evaluate(listElement));
+            }
+            return result;
         }
 
         private static Pattern VALUE_PATTERN = Pattern.compile(".*,value=(.+)]$");
@@ -160,6 +182,26 @@ public class EffectiveComponentDefinition {
             }
             return props;
         }
+
+        private ComponentDefinition find(int id) {
+            for (ComponentDefinition def : definitions) {
+                if (def.getId() == id) {
+                    return def;
+                }
+            }
+            throw new NoSuchElementException("id: " + id);
+        }
+
+        private ComponentDefinition find(String name) {
+            for (ComponentDefinition def : definitions) {
+                if (name.equals(def.getName())) {
+                    return def;
+                }
+            }
+            throw new NoSuchElementException("name: " + name);
+        }
+
+
 
         private ComponentDefinition find(ComponentReference ref) {
             for (ComponentDefinition def : definitions) {
