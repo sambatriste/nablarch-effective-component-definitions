@@ -32,4 +32,13 @@ public class EffectiveComponentDefinitionTest {
         assertThat((String) plainObject.get("name"), is("aaa"));
     }
 
+    @Test
+    public void testOverride() {
+        sut = new ObjectGraphBuilder("com/github/sambatriste/necd/override.xml");
+        Map<String, Object> m = sut.build();
+        assertThat(m.size(), is(1));
+        Map<String, Object> plainObject = (Map<String, Object>) m.get("plainObject");
+        assertThat((String) plainObject.get("name"), is("bbb"));
+
+    }
 }
