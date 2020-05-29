@@ -9,6 +9,8 @@ import nablarch.core.repository.di.DiContainer;
 import nablarch.core.repository.di.InjectionType;
 import nablarch.core.repository.di.config.ListComponentCreator;
 import nablarch.core.repository.di.config.LiteralComponentCreator;
+import nablarch.core.repository.di.config.MapComponentCreator;
+import nablarch.core.repository.di.config.MapEntryDefinition;
 import nablarch.core.repository.di.config.xml.XmlComponentDefinitionLoader;
 
 import java.io.BufferedWriter;
@@ -19,6 +21,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,12 +124,55 @@ public class EffectiveComponentDefinition {
             if (creator instanceof ListComponentCreator) {
                 return evaluate((ListComponentCreator) creator);
             }
+
+            if (creator instanceof MapComponentCreator) {
+                return evaluate((MapComponentCreator) creator);
+            }
             List<ComponentReference> refs = def.getReferences();
             if (refs.isEmpty()) {
                 return def.getType();
             }
 
             return evaluate(refs);
+        }
+
+        private Object evaluate(MapComponentCreator creator) {
+            List<MapEntryDefinition> entries = getEntriesOf(creator);
+            Map<String, Object> map = new TreeMap<String, Object>();
+
+            for (MapEntryDefinition entry : entries) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                switch (entry.getValueType()) {
+                    case COMPONENT: {
+                        ComponentDefinition def = find(entry.getValueId());
+                        value = evaluate(def);
+                        break;
+                    }
+                    case REF: {
+                        ComponentDefinition def = find(entry.getValueRef());
+                        value = evaluate(def );
+                        break;
+                    }
+                    case STRING:
+                        value = entry.getValue();
+                }
+                map.put(key, value);
+            }
+            return map;
+        }
+
+        @SuppressWarnings("unchecked")
+        private List<MapEntryDefinition> getEntriesOf(MapComponentCreator componentCreator) {
+            try {
+                Field f = MapComponentCreator.class.getDeclaredField("entries");
+                f.setAccessible(true);
+                return  (List<MapEntryDefinition>) f.get(componentCreator);
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         private static Pattern LIST_VALUE_PATTERN = Pattern.compile("list objects = \\[(.+)]");

@@ -66,5 +66,19 @@ public class EffectiveComponentDefinitionTest {
 
     }
 
+    @Test
+    public void testMap() {
+        sut = new ObjectGraphBuilder("com/github/sambatriste/necd/map.xml");
+        Map<String, Object> m = sut.build();
+        System.out.println("m = " + m);
+        Map<String, Object> map = (Map<String, Object>) m.get("literalMap");
+        assertThat((String) map.get("foo"), is("bar"));
+        assertThat((String) map.get("hoge"), is("fuga"));
+
+        Map<String, Object> componentMap = (Map<String, Object>) m.get("componentMap");
+        Map<String, Object> plainObject = (Map<String, Object>) componentMap.get("buz");
+        assertThat((String) plainObject.get("name"), is("aaa"));
+
+    }
 
 }
