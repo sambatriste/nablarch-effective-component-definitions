@@ -3,7 +3,6 @@ package com.github.sambatriste.necd;
 import com.github.sambatriste.necd.EffectiveComponentDefinition.ObjectGraphBuilder;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -29,7 +28,7 @@ public class EffectiveComponentDefinitionTest {
         sut = new ObjectGraphBuilder("com/github/sambatriste/necd/nestedObject.xml");
         Map<String, Object> m = sut.build();
         Map<String, Object> nestedObject = (Map<String, Object>) m.get("nestedObject");
-        assertThat((String) nestedObject.get("value"), is("100"));
+        assertThat((Integer) nestedObject.get("value"), is(100));
         Map<String, Object> plainObject = (Map<String, Object>) nestedObject.get("plainObject");
         assertThat((String) plainObject.get("name"), is("aaa"));
     }
@@ -65,7 +64,7 @@ public class EffectiveComponentDefinitionTest {
         assertThat(valueList.get(0), is("aaa"));
         assertThat(valueList.get(1), is("bbb"));
 
-
-        //EffectiveComponentDefinition.main("com/github/sambatriste/necd/list.xml");
     }
+
+
 }

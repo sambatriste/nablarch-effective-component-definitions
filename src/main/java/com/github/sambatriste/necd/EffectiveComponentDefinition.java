@@ -44,6 +44,7 @@ public class EffectiveComponentDefinition {
             this.outputFile = new File(outputFile);
         }
     }
+
     private static EffectiveComponentDefinition effectiveDef = new EffectiveComponentDefinition();
 
     public static void main(String... args) throws IOException {
@@ -114,7 +115,7 @@ public class EffectiveComponentDefinition {
 
             ComponentCreator creator = def.getCreator();
             if (creator instanceof LiteralComponentCreator) {
-                return evaluate((LiteralComponentCreator) creator);
+                return creator.createComponent(diContainer, def);
             }
 
             if (creator instanceof ListComponentCreator) {
@@ -129,6 +130,7 @@ public class EffectiveComponentDefinition {
         }
 
         private static Pattern LIST_VALUE_PATTERN = Pattern.compile("list objects = \\[(.+)]");
+
         private Object evaluate(ListComponentCreator creator) {
             String orig = creator.toString();
             Matcher valueMatcher = LIST_VALUE_PATTERN.matcher(orig);
@@ -150,26 +152,6 @@ public class EffectiveComponentDefinition {
                 result.add(evaluate(listElement));
             }
             return result;
-        }
-
-        private static Pattern VALUE_PATTERN = Pattern.compile(".*,value=(.+)]$");
-
-        private static Pattern VARIABLE_PATTERN = Pattern.compile("\\$\\{(.+)}");
-
-        private Object evaluate(LiteralComponentCreator c) {
-            // "literal object = [type=java.lang.String,value=${nablarch.ibmExtendedCharset.allowedCharacters}]"
-            String orig = c.toString();
-            Matcher valueMatcher = VALUE_PATTERN.matcher(orig);
-            if (valueMatcher.find()) {
-                String value = valueMatcher.group(1);
-                Matcher variableMatcher = VARIABLE_PATTERN.matcher(value);
-                if (variableMatcher.find()) {
-                    String varName = variableMatcher.group(1);
-                    return diContainer.getComponentByName(varName);
-                }
-                return value;
-            }
-            return orig;
         }
 
         private Object evaluate(List<ComponentReference> refs) {
@@ -200,7 +182,6 @@ public class EffectiveComponentDefinition {
             }
             throw new NoSuchElementException("name: " + name);
         }
-
 
 
         private ComponentDefinition find(ComponentReference ref) {
