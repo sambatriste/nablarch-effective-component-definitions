@@ -39,6 +39,13 @@ public class EffectiveComponentDefinitionTest {
         assertThat(m.size(), is(1));
         Map<String, Object> plainObject = (Map<String, Object>) m.get("plainObject");
         assertThat((String) plainObject.get("name"), is("bbb"));
+    }
 
+    @Test
+    public void testConfig() {
+        sut = new ObjectGraphBuilder("com/github/sambatriste/necd/config.xml");
+        Map<String, Object> m = sut.build();
+        Map<String, Object> plainObject = (Map<String, Object>) m.get("plainObject");
+        assertThat((String) plainObject.get("name"), is("ccc"));
     }
 }
