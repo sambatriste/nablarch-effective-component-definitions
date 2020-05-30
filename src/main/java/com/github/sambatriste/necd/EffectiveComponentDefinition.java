@@ -50,12 +50,12 @@ public class EffectiveComponentDefinition {
 
     private static EffectiveComponentDefinition effectiveDef = new EffectiveComponentDefinition();
 
-    public static void main(String... args) throws IOException {
+    public static void main(String... args) {
         ProgramArguments arguments = new ProgramArguments(args);
         effectiveDef.show(arguments.componentFileFqcn, arguments.outputFile);
     }
 
-    public void show(String componentFileFqcn, File fileToWrite) throws IOException {
+    public void show(String componentFileFqcn, File fileToWrite) {
         Writer writer = null;
         try {
             writer = open(fileToWrite);
@@ -65,13 +65,13 @@ public class EffectiveComponentDefinition {
         }
     }
 
-    public void show(String componentFileFqcn, Writer writer) throws IOException {
+    public void show(String componentFileFqcn, Writer writer) {
         ObjectGraphBuilder builder = new ObjectGraphBuilder(componentFileFqcn);
         Map<String, Object> graph = builder.build();
         doWrite(graph, writer);
     }
 
-    private void doWrite(Map<String, Object> graph, Writer writer) throws IOException {
+    private void doWrite(Map<String, Object> graph, Writer writer) {
         ObjectMapper objectMapper = new ObjectMapper();
         //objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
 
@@ -79,10 +79,10 @@ public class EffectiveComponentDefinition {
         try {
             seqWriter = objectMapper.writerWithDefaultPrettyPrinter().writeValues(writer);
             seqWriter.write(graph);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         } finally {
-            if (seqWriter != null) {
-                seqWriter.close();
-            }
+            closeQuietly(seqWriter);
         }
     }
 
@@ -255,14 +255,16 @@ public class EffectiveComponentDefinition {
         }
     }
 
-    private static BufferedWriter open(File fileToWrite) throws FileNotFoundException {
-        return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(fileToWrite), Charset.forName("UTF-8")));
+    private static BufferedWriter open(File fileToWrite) {
+        try {
+            return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(fileToWrite), Charset.forName("UTF-8")));
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void closeQuietly(Closeable closeable) {
-        if (closeable == null) {
-            return;
-        }
+        if (closeable == null) return;
         try {
             closeable.close();
         } catch (IOException e) {
