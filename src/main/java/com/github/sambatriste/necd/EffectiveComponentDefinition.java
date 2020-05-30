@@ -31,29 +31,61 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.TreeMap;
 
+/**
+ * 有効なコンポーネント設定を表すクラス。
+ * <p>
+ * 指定されたコンポーネント設定ファイルを読み込み、コンポーネント設定の最終的な評価結果を出力する。
+ */
 public class EffectiveComponentDefinition {
+    /**
+     * mainメソッド
+     *
+     * @param args プログラム引数
+     * @see ProgramArguments
+     * @see #show(String, Writer)
+     */
+    public static void main(String... args) {
+        ProgramArguments arguments = new ProgramArguments(args);
+        new EffectiveComponentDefinition().show(arguments.componentFileFqcn, arguments.outputFile);
+    }
 
+    /** プログラム引数 */
     private static class ProgramArguments {
+        /** デフォルトの出力先 */
+        static final String DEFAULT_OUTPUT_FILE_PATH = "effective-components.json";
+
+        /** 処理対象コンポーネント定義ファイルのFQCN */
         final String componentFileFqcn;
+
+        /** 出力ファイル */
         final File outputFile;
 
+        /**
+         * コンストラクタ。
+         * <ol>
+         *     <li>処理対象コンポーネント定義ファイルのFQCN</li>
+         *     <li>出力ファイルのパス（省略時は、{@link ProgramArguments#DEFAULT_OUTPUT_FILE_PATH}）</li>
+         * </ol>
+         *
+         * @param args Java起動時のプログラム引数
+         */
         ProgramArguments(String... args) {
             if (args.length == 0) {
                 throw new IllegalArgumentException(Arrays.toString(args));
             }
             this.componentFileFqcn = args[0];
-            String outputFile = args.length == 2 ? args[1] : "effective-components.json";
+            String outputFile = args.length == 2 ? args[1] : DEFAULT_OUTPUT_FILE_PATH;
             this.outputFile = new File(outputFile);
         }
+
     }
 
-    private static final EffectiveComponentDefinition effectiveDef = new EffectiveComponentDefinition();
-
-    public static void main(String... args) {
-        ProgramArguments arguments = new ProgramArguments(args);
-        effectiveDef.show(arguments.componentFileFqcn, arguments.outputFile);
-    }
-
+    /**
+     * 有効なコンポーネント設定を出力する。
+     *
+     * @param componentFileFqcn 処理対象コンポーネント定義ファイルのFQCN
+     * @param fileToWrite       出力先ファイル
+     */
     public void show(String componentFileFqcn, File fileToWrite) {
         Writer writer = null;
         try {
@@ -64,13 +96,25 @@ public class EffectiveComponentDefinition {
         }
     }
 
+    /**
+     * 有効なコンポーネント設定を出力する。
+     *
+     * @param componentFileFqcn 処理対象コンポーネント定義ファイルのFQCN
+     * @param writer            ライター
+     */
     public void show(String componentFileFqcn, Writer writer) {
         ObjectGraphBuilder builder = new ObjectGraphBuilder(componentFileFqcn);
         Map<String, Object> graph = builder.build();
-        doWrite(graph, writer);
+        writeJson(graph, writer);
     }
 
-    private void doWrite(Map<String, Object> graph, Writer writer) {
+    /**
+     * JSON形式で出力する。
+     *
+     * @param graph  オブジェクトグラフ
+     * @param writer ライター
+     */
+    private void writeJson(Map<String, Object> graph, Writer writer) {
         ObjectMapper objectMapper = new ObjectMapper();
         //objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
 
@@ -85,19 +129,34 @@ public class EffectiveComponentDefinition {
         }
     }
 
-
+    /** コンポーネント設定ファイルからオブジェクトグラフを構築するクラス。 */
     static class ObjectGraphBuilder {
-
+        /** コンポーネント定義 */
         private final List<ComponentDefinition> definitions;
 
+        /** {@link nablarch.core.repository.di.DiContainer} */
         private final DiContainer diContainer;
 
-        ObjectGraphBuilder(String componentFile) {
-            XmlComponentDefinitionLoader loader = new XmlComponentDefinitionLoader(componentFile);
+        /** コンポーネント定義検索クラス */
+        private final ComponentDefinitionFinder finder;
+
+        /**
+         * コンストラクタ。
+         *
+         * @param componentFileFqcn 処理対象コンポーネント定義ファイルのFQCN
+         */
+        ObjectGraphBuilder(String componentFileFqcn) {
+            XmlComponentDefinitionLoader loader = new XmlComponentDefinitionLoader(componentFileFqcn);
             diContainer = new DiContainer(loader);
             definitions = loader.load(diContainer);
+            finder = new ComponentDefinitionFinder(definitions);
         }
 
+        /**
+         * オブジェクトグラフを構築する。
+         *
+         * @return オブジェクトグラフ
+         */
         Map<String, Object> build() {
             Map<String, Object> result = new TreeMap<String, Object>();
             for (ComponentDefinition def : definitions) {
@@ -110,33 +169,49 @@ public class EffectiveComponentDefinition {
             return result;
         }
 
+        /**
+         * コンポーネント定義を評価する。
+         *
+         * @param def コンポーネント定義
+         * @return 評価結果
+         */
         private Object evaluate(ComponentDefinition def) {
             if (def == null) {
                 return null;
             }
 
             ComponentCreator creator = def.getCreator();
+
+            // リテラル
             if (creator instanceof LiteralComponentCreator) {
+                // DIコンテナを使って値を取得する
                 return creator.createComponent(diContainer, def);
             }
-
+            // リスト
             if (creator instanceof ListComponentCreator) {
                 return evaluate((ListComponentCreator) creator);
             }
-
+            // マップ
             if (creator instanceof MapComponentCreator) {
                 return evaluate((MapComponentCreator) creator);
             }
 
             List<ComponentReference> refs = def.getReferences();
             if (refs.isEmpty()) {
+                // ネストしていない場合、コンポーネントのクラス名を評価結果とする
                 return def.getType();
             }
-
+            // ネストしている場合
             return evaluate(refs);
         }
 
-        private Object evaluate(MapComponentCreator creator) {
+        /**
+         * マップリンポーネント生成クラスを評価する。
+         *
+         * @param creator マップリンポーネント生成クラス
+         * @return 評価結果
+         */
+        private Map<String, Object> evaluate(MapComponentCreator creator) {
             List<MapEntryDefinition> entries = getEntriesOf(creator);
             Map<String, Object> map = new TreeMap<String, Object>();
 
@@ -145,12 +220,12 @@ public class EffectiveComponentDefinition {
                 Object value = entry.getValue();
                 switch (entry.getValueType()) {
                     case COMPONENT: {
-                        ComponentDefinition def = find(entry.getValueId());
+                        ComponentDefinition def = finder.find(entry.getValueId());
                         value = evaluate(def);
                         break;
                     }
                     case REF: {
-                        ComponentDefinition def = find(entry.getValueRef());
+                        ComponentDefinition def = finder.find(entry.getValueRef());
                         value = evaluate(def);
                         break;
                     }
@@ -175,17 +250,30 @@ public class EffectiveComponentDefinition {
             }
         }
 
-        private Object evaluate(ListComponentCreator creator) {
+        /**
+         * リストコンポーネント生成クラスを評価する。
+         *
+         * @param creator リストコンポーネント生成クラス
+         * @return 評価結果
+         */
+        private List<Object> evaluate(ListComponentCreator creator) {
             List<ListElementDefinition> elementDefs = getElementDefinitionsOf(creator);
             List<Object> result = new ArrayList<Object>();
             for (ListElementDefinition elementDef : elementDefs) {
-                ComponentDefinition componentDef =
-                    (elementDef.getName() == null) ? find(elementDef.getId()) : find(elementDef.getName());
+                ComponentDefinition componentDef = (elementDef.getName() == null) ?
+                    finder.find(elementDef.getId()) :
+                    finder.find(elementDef.getName());
                 result.add(evaluate(componentDef));
             }
             return result;
         }
 
+        /**
+         * リストコンポーネント生成クラスから、リストの要素定義を取得する。
+         *
+         * @param componentCreator リストコンポーネント生成クラス
+         * @return リストの要素定義
+         */
         @SuppressWarnings("unchecked")
         private List<ListElementDefinition> getElementDefinitionsOf(ListComponentCreator componentCreator) {
             try {
@@ -199,17 +287,44 @@ public class EffectiveComponentDefinition {
             }
         }
 
+        /**
+         * コンポーネント参照を評価する。
+         *
+         * @param refs コンポーネント参照
+         * @return 評価結果
+         */
         private Object evaluate(List<ComponentReference> refs) {
             Map<String, Object> props = new TreeMap<String, Object>();
             for (ComponentReference ref : refs) {
-                ComponentDefinition targetDef = find(ref);
+                ComponentDefinition targetDef = finder.find(ref);
                 String name = ref.getPropertyName();
-                Object value = evaluate(targetDef);  // tail recursion でないがええじゃろ
+                Object value = evaluate(targetDef);
                 props.put(name, value);
             }
             return props;
         }
+    }
 
+    /** コンポーネント定義を検索するクラス。 */
+    static class ComponentDefinitionFinder {
+        /** コンポーネント定義 */
+        private final List<ComponentDefinition> definitions;
+
+        /**
+         * コンストラクタ
+         *
+         * @param definitions コンポーネント定義
+         */
+        ComponentDefinitionFinder(List<ComponentDefinition> definitions) {
+            this.definitions = definitions;
+        }
+
+        /**
+         * コンポーネント定義を検索する。
+         *
+         * @param id コンポーネントID
+         * @return コンポーネント定義
+         */
         private ComponentDefinition find(int id) {
             for (ComponentDefinition def : definitions) {
                 if (def.getId() == id) {
@@ -219,6 +334,12 @@ public class EffectiveComponentDefinition {
             throw new NoSuchElementException("id: " + id);
         }
 
+        /**
+         * コンポーネント定義を検索する。
+         *
+         * @param name コンポーネント名
+         * @return コンポーネント定義
+         */
         private ComponentDefinition find(String name) {
             for (ComponentDefinition def : definitions) {
                 if (name.equals(def.getName())) {
@@ -228,7 +349,12 @@ public class EffectiveComponentDefinition {
             throw new NoSuchElementException("name: " + name);
         }
 
-
+        /**
+         * コンポーネント定義を検索する。
+         *
+         * @param ref コンポーネント参照
+         * @return コンポーネント定義
+         */
         private ComponentDefinition find(ComponentReference ref) {
             for (ComponentDefinition def : definitions) {
                 if (matches(def, ref)) {
@@ -238,6 +364,13 @@ public class EffectiveComponentDefinition {
             return null;
         }
 
+        /**
+         * コンポーネント定義がコンポーネント参照と合致するか判定する。
+         *
+         * @param def コンポーネント定義
+         * @param ref コンポーネント参照
+         * @return 合致する場合、真
+         */
         private boolean matches(ComponentDefinition def, ComponentReference ref) {
             InjectionType injectionType = ref.getInjectionType();
             switch (injectionType) {
@@ -254,6 +387,11 @@ public class EffectiveComponentDefinition {
         }
     }
 
+    /**
+     * ファイルを出力用にオープンする
+     * @param fileToWrite 出力先ファイル
+     * @return ライター
+     */
     private static BufferedWriter open(File fileToWrite) {
         try {
             return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(fileToWrite), Charset.forName("UTF-8")));
@@ -262,6 +400,10 @@ public class EffectiveComponentDefinition {
         }
     }
 
+    /**
+     * リソースをクローズする。
+     * @param closeable クローズ対象
+     */
     private static void closeQuietly(Closeable closeable) {
         if (closeable == null) return;
         try {
