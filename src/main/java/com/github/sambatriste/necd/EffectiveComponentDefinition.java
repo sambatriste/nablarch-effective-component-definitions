@@ -8,6 +8,7 @@ import nablarch.core.repository.di.ComponentReference;
 import nablarch.core.repository.di.DiContainer;
 import nablarch.core.repository.di.InjectionType;
 import nablarch.core.repository.di.config.ListComponentCreator;
+import nablarch.core.repository.di.config.ListElementDefinition;
 import nablarch.core.repository.di.config.LiteralComponentCreator;
 import nablarch.core.repository.di.config.MapComponentCreator;
 import nablarch.core.repository.di.config.MapEntryDefinition;
@@ -29,8 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class EffectiveComponentDefinition {
 
@@ -48,7 +47,7 @@ public class EffectiveComponentDefinition {
         }
     }
 
-    private static EffectiveComponentDefinition effectiveDef = new EffectiveComponentDefinition();
+    private static final EffectiveComponentDefinition effectiveDef = new EffectiveComponentDefinition();
 
     public static void main(String... args) {
         ProgramArguments arguments = new ProgramArguments(args);
@@ -128,6 +127,7 @@ public class EffectiveComponentDefinition {
             if (creator instanceof MapComponentCreator) {
                 return evaluate((MapComponentCreator) creator);
             }
+
             List<ComponentReference> refs = def.getReferences();
             if (refs.isEmpty()) {
                 return def.getType();
@@ -151,7 +151,7 @@ public class EffectiveComponentDefinition {
                     }
                     case REF: {
                         ComponentDefinition def = find(entry.getValueRef());
-                        value = evaluate(def );
+                        value = evaluate(def);
                         break;
                     }
                     case STRING:
@@ -167,7 +167,7 @@ public class EffectiveComponentDefinition {
             try {
                 Field f = MapComponentCreator.class.getDeclaredField("entries");
                 f.setAccessible(true);
-                return  (List<MapEntryDefinition>) f.get(componentCreator);
+                return (List<MapEntryDefinition>) f.get(componentCreator);
             } catch (NoSuchFieldException e) {
                 throw new RuntimeException(e);
             } catch (IllegalAccessException e) {
@@ -175,29 +175,28 @@ public class EffectiveComponentDefinition {
             }
         }
 
-        private static Pattern LIST_VALUE_PATTERN = Pattern.compile("list objects = \\[(.+)]");
-
         private Object evaluate(ListComponentCreator creator) {
-            String orig = creator.toString();
-            Matcher valueMatcher = LIST_VALUE_PATTERN.matcher(orig);
-            boolean found = valueMatcher.find();
-            assert found;
-            String listValue = valueMatcher.group(1);
-            String[] elements = listValue.split(",");
+            List<ListElementDefinition> elementDefs = getElementDefinitionsOf(creator);
             List<Object> result = new ArrayList<Object>();
-            for (String e : elements) {
-                String[] split = e.split(":");
-                String type = split[0];
-                String val = split[1];
-                ComponentDefinition listElement = null;
-                if (type.equals("id")) {
-                    listElement = find(Integer.parseInt(val));
-                } else if (type.equals("name")) {
-                    listElement = find(val);
-                }
-                result.add(evaluate(listElement));
+            for (ListElementDefinition elementDef : elementDefs) {
+                ComponentDefinition componentDef =
+                    (elementDef.getName() == null) ? find(elementDef.getId()) : find(elementDef.getName());
+                result.add(evaluate(componentDef));
             }
             return result;
+        }
+
+        @SuppressWarnings("unchecked")
+        private List<ListElementDefinition> getElementDefinitionsOf(ListComponentCreator componentCreator) {
+            try {
+                Field f = ListComponentCreator.class.getDeclaredField("elementDefinitions");
+                f.setAccessible(true);
+                return (List<ListElementDefinition>) f.get(componentCreator);
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         private Object evaluate(List<ComponentReference> refs) {
