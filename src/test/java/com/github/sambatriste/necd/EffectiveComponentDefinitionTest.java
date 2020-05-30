@@ -81,4 +81,14 @@ public class EffectiveComponentDefinitionTest {
 
     }
 
+    @Test
+    public void testFactory() {
+        sut = new ObjectGraphBuilder("com/github/sambatriste/necd/factory.xml");
+        Map<String, Object> m = sut.build();
+
+        Map<String, Object> plainObject = (Map<String, Object>) m.get("plainObjectByFactory");
+        assertThat((String) plainObject.get("name"), is("ddd"));
+
+    }
+
 }
